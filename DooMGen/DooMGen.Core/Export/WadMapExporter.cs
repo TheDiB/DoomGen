@@ -15,13 +15,14 @@ namespace DooMGen.Core.Export
 
             // TEXTMAP
             var udmf = UdmfExporter.Export(map, ZDoomMode);
-            wad.AddLump("TEXTMAP", Encoding.UTF8.GetBytes(udmf));
+            var utf8NoBom = new UTF8Encoding(false);
+            wad.AddLump("TEXTMAP", utf8NoBom.GetBytes(udmf));
 
             // ENDMAP
             wad.AddLump("ENDMAP", Array.Empty<byte>());
 
             // MAPINFO
-            var mapinfo = MapInfoExporter.Export(map);
+            var mapinfo = MapInfoExporter.Export(map, ZDoomMode);
             wad.AddLump(ZDoomMode ? "ZMAPINFO" : "MAPINFO", Encoding.UTF8.GetBytes(mapinfo));
 
             wad.Save(filePath);

@@ -11,67 +11,13 @@ namespace DooMGen.Core.Generation
             _rng = new Random(seed);
         }
 
-        public DoomMap BuildMap(List<Room> rooms, List<(Room A, Room B)> corridors)
-        {
-            var map = new DoomMap { Name = "MAP01" };
-
-            int vertexIndex = 0;
-            int sidedefIndex = 0;
-            int linedefIndex = 0;
-            int sectorIndex = 0;
-
-            foreach (var room in rooms)
-            {
-                // 1. Créer un secteur
-                var sector = new Sector { Id = sectorIndex++ };
-                map.Sectors.Add(sector);
-
-                // 2. Créer les 4 vertices
-                int v0 = vertexIndex++;
-                int v1 = vertexIndex++;
-                int v2 = vertexIndex++;
-                int v3 = vertexIndex++;
-
-                map.Vertices.Add(new Vertex(room.X, room.Y));
-                map.Vertices.Add(new Vertex(room.X + room.Width, room.Y));
-                map.Vertices.Add(new Vertex(room.X + room.Width, room.Y + room.Height));
-                map.Vertices.Add(new Vertex(room.X, room.Y + room.Height));
-
-                // 3. Créer les 4 sidedefs
-                int s0 = sidedefIndex++;
-                int s1 = sidedefIndex++;
-                int s2 = sidedefIndex++;
-                int s3 = sidedefIndex++;
-
-                map.Sidedefs.Add(new Sidedef { Id = s0, SectorId = sector.Id });
-                map.Sidedefs.Add(new Sidedef { Id = s1, SectorId = sector.Id });
-                map.Sidedefs.Add(new Sidedef { Id = s2, SectorId = sector.Id });
-                map.Sidedefs.Add(new Sidedef { Id = s3, SectorId = sector.Id });
-
-                // 4. Créer les 4 linedefs
-                map.Linedefs.Add(new Linedef { Id = linedefIndex++, StartVertex = v0, EndVertex = v1, FrontSidedef = s0 });
-                map.Linedefs.Add(new Linedef { Id = linedefIndex++, StartVertex = v1, EndVertex = v2, FrontSidedef = s1 });
-                map.Linedefs.Add(new Linedef { Id = linedefIndex++, StartVertex = v2, EndVertex = v3, FrontSidedef = s2 });
-                map.Linedefs.Add(new Linedef { Id = linedefIndex++, StartVertex = v3, EndVertex = v0, FrontSidedef = s3 });
-            }
-
-            // 5. Ajouter le joueur dans la première room
-            var first = rooms.First();
-            map.Things.Add(new Thing
-            {
-                Id = 0,
-                X = first.CenterX,
-                Y = first.CenterY,
-                Type = 1
-            });
-
-            return map;
-        }
+        // ---------------------------------------------------------
+        // ROOM GENERATION
+        // ---------------------------------------------------------
 
         public List<Room> GenerateRooms(int count)
         {
             var rooms = new List<Room>();
-
             int attempts = 0;
 
             while (rooms.Count < count && attempts < count * 20)
@@ -94,10 +40,21 @@ namespace DooMGen.Core.Generation
             return rooms;
         }
 
+        private bool Overlaps(Room a, Room b)
+        {
+            return !(b.X + b.Width <= a.X ||
+                     b.X >= a.X + a.Width ||
+                     b.Y + b.Height <= a.Y ||
+                     b.Y >= a.Y + a.Height);
+        }
+
+        // ---------------------------------------------------------
+        // CORRIDOR PAIRING
+        // ---------------------------------------------------------
+
         public List<(Room A, Room B)> GenerateCorridors(List<Room> rooms)
         {
             var corridors = new List<(Room, Room)>();
-
             var sorted = rooms.OrderBy(r => r.CenterX).ToList();
 
             for (int i = 0; i < sorted.Count - 1; i++)
@@ -106,12 +63,163 @@ namespace DooMGen.Core.Generation
             return corridors;
         }
 
-        private bool Overlaps(Room a, Room b)
+        // ---------------------------------------------------------
+        // MAP BUILDING
+        // ---------------------------------------------------------
+
+        public DoomMap BuildMap(List<Room> rooms, List<(Room A, Room B)> corridors)
         {
-            return !(b.X + b.Width < a.X ||
-                     b.X > a.X + a.Width ||
-                     b.Y + b.Height < a.Y ||
-                     b.Y > a.Y + a.Height);
+            var map = new DoomMap { Name = "MAP01" };
+
+            // 1. Build rooms
+            foreach (var room in rooms)
+                BuildRoom(map, room);
+
+            // 2. Build corridors
+            foreach (var (A, B) in corridors)
+                ConnectRooms(map, A, B);
+
+            // 3. Player start
+            var first = rooms.First();
+            map.Things.Add(new Thing
+            {
+                Id = 0,
+                X = first.CenterX,
+                Y = first.CenterY,
+                Type = 1,
+                Angle = 0,
+                Flags = 7
+            });
+
+            return map;
+        }
+
+        private void BuildRoom(DoomMap map, Room room)
+        {
+            // 1. Sector
+            var sector = new Sector
+            {
+                Id = map.Sectors.Count,
+                FloorHeight = 0,
+                CeilingHeight = 128,
+                FloorTexture = "FLOOR0_1",
+                CeilingTexture = "CEIL1_1",
+                LightLevel = 160
+            };
+            map.Sectors.Add(sector);
+
+            // 2. Vertices
+            int v0 = map.Vertices.Count;
+            map.Vertices.Add(new Vertex(room.X, room.Y));
+
+            int v1 = map.Vertices.Count;
+            map.Vertices.Add(new Vertex(room.X + room.Width, room.Y));
+
+            int v2 = map.Vertices.Count;
+            map.Vertices.Add(new Vertex(room.X + room.Width, room.Y + room.Height));
+
+            int v3 = map.Vertices.Count;
+            map.Vertices.Add(new Vertex(room.X, room.Y + room.Height));
+
+            // 3. Linedefs (correct orientation)
+            AddLine(map, v0, v3, sector.Id);
+            AddLine(map, v3, v2, sector.Id);
+            AddLine(map, v2, v1, sector.Id);
+            AddLine(map, v1, v0, sector.Id);
+        }
+
+        // ---------------------------------------------------------
+        // CORRIDOR GEOMETRY
+        // ---------------------------------------------------------
+
+        private void ConnectRooms(DoomMap map, Room a, Room b)
+        {
+            int x1 = (int)a.CenterX;
+            int y1 = (int)a.CenterY;
+
+            int x2 = (int)b.CenterX;
+            int y2 = (int)b.CenterY;
+
+            if (Math.Abs(x2 - x1) > Math.Abs(y2 - y1))
+            {
+                // Horizontal corridor
+                int left = Math.Min(x1, x2);
+                int right = Math.Max(x1, x2);
+
+                BuildCorridor(map, left, y1 - 32, right - left, 64);
+            }
+            else
+            {
+                // Vertical corridor
+                int top = Math.Min(y1, y2);
+                int bottom = Math.Max(y1, y2);
+
+                BuildCorridor(map, x1 - 32, top, 64, bottom - top);
+            }
+        }
+
+        private void BuildCorridor(DoomMap map, int x, int y, int width, int height)
+        {
+            // 1. Sector
+            var sector = new Sector
+            {
+                Id = map.Sectors.Count,
+                FloorHeight = 0,
+                CeilingHeight = 128,
+                FloorTexture = "FLOOR0_1",
+                CeilingTexture = "CEIL1_1",
+                LightLevel = 160
+            };
+            map.Sectors.Add(sector);
+
+            // 2. Vertices
+            int v0 = map.Vertices.Count;
+            map.Vertices.Add(new Vertex(x, y));
+
+            int v1 = map.Vertices.Count;
+            map.Vertices.Add(new Vertex(x + width, y));
+
+            int v2 = map.Vertices.Count;
+            map.Vertices.Add(new Vertex(x + width, y + height));
+
+            int v3 = map.Vertices.Count;
+            map.Vertices.Add(new Vertex(x, y + height));
+
+            // 3. Linedefs
+            AddLine(map, v0, v3, sector.Id);
+            AddLine(map, v3, v2, sector.Id);
+            AddLine(map, v2, v1, sector.Id);
+            AddLine(map, v1, v0, sector.Id);
+        }
+
+        // ---------------------------------------------------------
+        // LINE BUILDER
+        // ---------------------------------------------------------
+
+        private void AddLine(DoomMap map, int vStart, int vEnd, int sectorId)
+        {
+            int sidedefIndex = map.Sidedefs.Count;
+
+            map.Sidedefs.Add(new Sidedef
+            {
+                Id = sidedefIndex,
+                SectorId = sectorId,
+                UpperTexture = "-",
+                LowerTexture = "-",
+                MiddleTexture = "STARTAN2"
+            });
+
+            map.Linedefs.Add(new Linedef
+            {
+                Id = map.Linedefs.Count,
+                StartVertex = vStart,
+                EndVertex = vEnd,
+                FrontSidedef = sidedefIndex,
+                Flags = 0,
+                Special = 0,
+                Tag = 0
+            });
         }
     }
+
 }

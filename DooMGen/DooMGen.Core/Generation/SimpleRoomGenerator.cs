@@ -8,49 +8,75 @@ namespace DooMGen.Core.Generation
         {
             var map = new DoomMap { Name = "MAP01" };
 
-            // 4 sommets d’un rectangle
-            map.Vertices.AddRange(new[]
+            // 1. Secteur
+            var sector = new Sector
             {
-            new Vertex(0, 0),
-            new Vertex(256, 0),
-            new Vertex(256, 256),
-            new Vertex(0, 256)
-        });
-
-            // 1 secteur
-            var sector = new Sector { Id = 0 };
+                Id = map.Sectors.Count,
+                FloorHeight = 0,
+                CeilingHeight = 128,
+                FloorTexture = "FLOOR0_1",
+                CeilingTexture = "CEIL1_1",
+                LightLevel = 160
+            };
             map.Sectors.Add(sector);
 
-            // 4 sidedefs (un par mur)
-            for (int i = 0; i < 4; i++)
-            {
-                map.Sidedefs.Add(new Sidedef
-                {
-                    Id = i,
-                    SectorId = sector.Id
-                });
-            }
+            // 2. Vertices (ordre : bas-gauche, bas-droite, haut-droite, haut-gauche)
+            int v0 = map.Vertices.Count;
+            map.Vertices.Add(new Vertex(0, 0));
 
-            // 4 linedefs (boucle)
-            map.Linedefs.AddRange(new[]
-            {
-            new Linedef { Id = 0, StartVertex = 0, EndVertex = 1, FrontSidedef = 0 },
-            new Linedef { Id = 1, StartVertex = 1, EndVertex = 2, FrontSidedef = 1 },
-            new Linedef { Id = 2, StartVertex = 2, EndVertex = 3, FrontSidedef = 2 },
-            new Linedef { Id = 3, StartVertex = 3, EndVertex = 0, FrontSidedef = 3 },
-        });
+            int v1 = map.Vertices.Count;
+            map.Vertices.Add(new Vertex(256, 0));
 
-            // Player 1 au centre
+            int v2 = map.Vertices.Count;
+            map.Vertices.Add(new Vertex(256, 256));
+
+            int v3 = map.Vertices.Count;
+            map.Vertices.Add(new Vertex(0, 256));
+
+            // 3. Lignes (boucle fermée, dans l’ordre)
+            AddLine(map, v0, v3, sector.Id);
+            AddLine(map, v3, v2, sector.Id);
+            AddLine(map, v2, v1, sector.Id);
+            AddLine(map, v1, v0, sector.Id);
+
+            // 4. Player 1 Start au centre du secteur
             map.Things.Add(new Thing
             {
                 Id = 0,
                 X = 128,
                 Y = 128,
+                Type = 1,
                 Angle = 0,
-                Type = 1
+                Flags = 7
             });
 
             return map;
+        }
+
+        private static void AddLine(DoomMap map, int vStart, int vEnd, int sectorId)
+        {
+            // 1. Créer le sidedef
+            var sidedef = new Sidedef
+            {
+                Id = map.Sidedefs.Count,
+                SectorId = sectorId,
+                UpperTexture = "-",
+                LowerTexture = "-",
+                MiddleTexture = "STARTAN2"
+            };
+            map.Sidedefs.Add(sidedef);
+
+            // 2. Créer le linedef qui pointe vers CE sidedef
+            map.Linedefs.Add(new Linedef
+            {
+                Id = map.Linedefs.Count,
+                StartVertex = vStart,
+                EndVertex = vEnd,
+                FrontSidedef = sidedef.Id,
+                Flags = 0,
+                Special = 0,
+                Tag = 0
+            });
         }
     }
 }

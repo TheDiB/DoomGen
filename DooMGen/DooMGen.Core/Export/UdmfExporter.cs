@@ -1,26 +1,27 @@
 ﻿using DooMGen.Core.Map;
-using System.Globalization;
 using System.Text;
 
 namespace DooMGen.Core.Export
 {
     public static class UdmfExporter
     {
-        private static readonly CultureInfo Ci = CultureInfo.InvariantCulture;
-
-        public static string Export(DoomMap map, bool ZDoomMode)
+        public static string Export(DoomMap map, bool zdoomMode)
         {
             var sb = new StringBuilder();
 
-            sb.AppendLine("namespace = \"" + (ZDoomMode ? "ZDoom" : "ZDBSP") + "\";"); // ou \"Doom\" selon port
+            // Toujours la première ligne
+            sb.AppendLine("namespace = \"Doom\";");
             sb.AppendLine();
 
+            // ---------------------------------------------------------
+            // THINGS
+            // ---------------------------------------------------------
             foreach (var thing in map.Things)
             {
                 sb.AppendLine("thing");
                 sb.AppendLine("{");
-                sb.AppendLine($"    x = {thing.X.ToString(Ci)};");
-                sb.AppendLine($"    y = {thing.Y.ToString(Ci)};");
+                sb.AppendLine($"    x = {thing.X};");
+                sb.AppendLine($"    y = {thing.Y};");
                 sb.AppendLine($"    angle = {thing.Angle};");
                 sb.AppendLine($"    type = {thing.Type};");
                 sb.AppendLine($"    flags = {thing.Flags};");
@@ -28,53 +29,71 @@ namespace DooMGen.Core.Export
                 sb.AppendLine();
             }
 
-            foreach (var vertex in map.Vertices)
+            // ---------------------------------------------------------
+            // VERTICES
+            // ---------------------------------------------------------
+            foreach (var v in map.Vertices)
             {
                 sb.AppendLine("vertex");
                 sb.AppendLine("{");
-                sb.AppendLine($"    x = {vertex.X.ToString(Ci)};");
-                sb.AppendLine($"    y = {vertex.Y.ToString(Ci)};");
+                sb.AppendLine($"    x = {v.X};");
+                sb.AppendLine($"    y = {v.Y};");
                 sb.AppendLine("}");
                 sb.AppendLine();
             }
 
-            foreach (var sector in map.Sectors)
-            {
-                sb.AppendLine("sector");
-                sb.AppendLine("{");
-                sb.AppendLine($"    heightfloor = {sector.FloorHeight.ToString(Ci)};");
-                sb.AppendLine($"    heightceiling = {sector.CeilingHeight.ToString(Ci)};");
-                sb.AppendLine($"    texturefloor = \"{sector.FloorTexture}\";");
-                sb.AppendLine($"    textureceiling = \"{sector.CeilingTexture}\";");
-                sb.AppendLine($"    lightlevel = {sector.LightLevel};");
-                sb.AppendLine("}");
-                sb.AppendLine();
-            }
-
-            foreach (var linedef in map.Linedefs)
+            // ---------------------------------------------------------
+            // LINEDEFS
+            // ---------------------------------------------------------
+            foreach (var l in map.Linedefs)
             {
                 sb.AppendLine("linedef");
                 sb.AppendLine("{");
-                sb.AppendLine($"    v1 = {linedef.StartVertex};");
-                sb.AppendLine($"    v2 = {linedef.EndVertex};");
-                sb.AppendLine($"    sidefront = {linedef.FrontSidedef};");
-                if (linedef.BackSidedef is int back)
+                sb.AppendLine($"    v1 = {l.StartVertex};");
+                sb.AppendLine($"    v2 = {l.EndVertex};");
+                sb.AppendLine($"    sidefront = {l.FrontSidedef};");
+
+                if (l.BackSidedef is int back)
                     sb.AppendLine($"    sideback = {back};");
-                sb.AppendLine($"    flags = {linedef.Flags};");
-                sb.AppendLine($"    special = {linedef.Special};");
-                sb.AppendLine($"    arg0 = {linedef.Tag};");
+
+                sb.AppendLine($"    flags = {l.Flags};");
+                sb.AppendLine($"    special = {l.Special};");
+                sb.AppendLine($"    arg0 = {l.Tag};");
+                sb.AppendLine($"    arg1 = 0;");
+                sb.AppendLine($"    arg2 = 0;");
+                sb.AppendLine($"    arg3 = 0;");
+                sb.AppendLine($"    arg4 = 0;");
                 sb.AppendLine("}");
                 sb.AppendLine();
             }
 
-            foreach (var sidedef in map.Sidedefs)
+            // ---------------------------------------------------------
+            // SIDEDEFS
+            // ---------------------------------------------------------
+            foreach (var s in map.Sidedefs)
             {
                 sb.AppendLine("sidedef");
                 sb.AppendLine("{");
-                sb.AppendLine($"    sector = {sidedef.SectorId};");
-                sb.AppendLine($"    texturetop = \"{sidedef.UpperTexture}\";");
-                sb.AppendLine($"    texturebottom = \"{sidedef.LowerTexture}\";");
-                sb.AppendLine($"    texturemiddle = \"{sidedef.MiddleTexture}\";");
+                sb.AppendLine($"    sector = {s.SectorId};");
+                sb.AppendLine($"    texturetop = \"{s.UpperTexture}\";");
+                sb.AppendLine($"    texturebottom = \"{s.LowerTexture}\";");
+                sb.AppendLine($"    texturemiddle = \"{s.MiddleTexture}\";");
+                sb.AppendLine("}");
+                sb.AppendLine();
+            }
+
+            // ---------------------------------------------------------
+            // SECTORS
+            // ---------------------------------------------------------
+            foreach (var sec in map.Sectors)
+            {
+                sb.AppendLine("sector");
+                sb.AppendLine("{");
+                sb.AppendLine($"    heightfloor = {sec.FloorHeight};");
+                sb.AppendLine($"    heightceiling = {sec.CeilingHeight};");
+                sb.AppendLine($"    texturefloor = \"{sec.FloorTexture}\";");
+                sb.AppendLine($"    textureceiling = \"{sec.CeilingTexture}\";");
+                sb.AppendLine($"    lightlevel = {sec.LightLevel};");
                 sb.AppendLine("}");
                 sb.AppendLine();
             }
