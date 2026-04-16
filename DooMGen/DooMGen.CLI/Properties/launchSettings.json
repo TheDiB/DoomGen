@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "DooMGen.CLI": {
+      "commandName": "Project",
+      "commandLineArgs": "-zdoom"
+    }
+  }
+}

@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="DooMGen.CLI/DooMGen.CLI.csproj" Id="21337f81-2a97-41c4-ab9d-d2adaf694069" />
+  <Project Path="DooMGen.Core/DooMGen.Core.csproj" />
+</Solution>
