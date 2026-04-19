@@ -5,7 +5,7 @@ namespace DooMGen.Core.Export
 {
     public static class MapInfoExporter
     {
-        public static string Export(DoomMap map, bool zdoomMode)
+        public static string Export(DoomMap map, bool zdoomMode, string mapName)
         {
             var sb = new StringBuilder();
 

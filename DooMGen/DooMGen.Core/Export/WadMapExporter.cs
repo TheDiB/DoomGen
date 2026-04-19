@@ -6,12 +6,12 @@ namespace DooMGen.Core.Export
 {
     public static class WadMapExporter
     {
-        public static void ExportToWad(DoomMap map, string filePath, bool ZDoomMode)
+        public static void ExportToWad(DoomMap map, string filePath, bool ZDoomMode, string mapName)
         {
             var wad = new WadWriter();
 
             // MAP01 (vide)
-            wad.AddLump(map.Name, Array.Empty<byte>());
+            wad.AddLump("MAP01", Array.Empty<byte>());
 
             // TEXTMAP
             var udmf = UdmfExporter.Export(map, ZDoomMode);
@@ -22,7 +22,7 @@ namespace DooMGen.Core.Export
             wad.AddLump("ENDMAP", Array.Empty<byte>());
 
             // MAPINFO
-            var mapinfo = MapInfoExporter.Export(map, ZDoomMode);
+            var mapinfo = MapInfoExporter.Export(map, ZDoomMode, mapName);
             wad.AddLump(ZDoomMode ? "ZMAPINFO" : "MAPINFO", Encoding.UTF8.GetBytes(mapinfo));
 
             wad.Save(filePath);

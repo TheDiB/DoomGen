@@ -49,7 +49,7 @@ namespace DooMGen.Core.Generation
         }
 
         // ---------------------------------------------------------
-        // CORRIDOR PAIRING
+        // CORRIDOR PAIRING (LOGIQUE)
         // ---------------------------------------------------------
 
         public List<(Room A, Room B)> GenerateCorridors(List<Room> rooms)
@@ -67,39 +67,14 @@ namespace DooMGen.Core.Generation
         // MAP BUILDING
         // ---------------------------------------------------------
 
-        public DoomMap BuildMap(List<Room> rooms, List<(Room A, Room B)> corridors)
+        public DoomMap BuildMap(List<Room> rooms, List<(Room A, Room B)> corridors, string mapName)
         {
-            var map = new DoomMap { Name = "MAP01" };
+            var map = new DoomMap { Name = mapName };
 
-            // 1. Build rooms
-            foreach (var room in rooms)
-                BuildRoom(map, room);
-
-            // 2. Build corridors
-            foreach (var (A, B) in corridors)
-                ConnectRooms(map, A, B);
-
-            // 3. Player start
-            var first = rooms.First();
-            map.Things.Add(new Thing
-            {
-                Id = 0,
-                X = first.CenterX,
-                Y = first.CenterY,
-                Type = 1,
-                Angle = 0,
-                Flags = 7
-            });
-
-            return map;
-        }
-
-        private void BuildRoom(DoomMap map, Room room)
-        {
-            // 1. Sector
+            // 1. Un seul secteur pour toute la map
             var sector = new Sector
             {
-                Id = map.Sectors.Count,
+                Id = 0,
                 FloorHeight = 0,
                 CeilingHeight = 128,
                 FloorTexture = "FLOOR0_1",
@@ -108,7 +83,44 @@ namespace DooMGen.Core.Generation
             };
             map.Sectors.Add(sector);
 
-            // 2. Vertices
+            // 2. Build rooms (toutes dans le même secteur)
+            foreach (var room in rooms)
+            {
+                room.SectorId = sector.Id;
+                BuildRoom(map, room, sector.Id);
+            }
+
+            // 3. Build corridors (dans le même secteur)
+            foreach (var (A, B) in corridors)
+                ConnectRooms(map, A, B, sector.Id);
+
+            // 4. Player start dans la première room (safe)
+            var first = rooms.First();
+            var (sx, sy) = SafeSpawn(first);
+
+            map.Things.Add(new Thing
+            {
+                Id = 0,
+                X = sx,
+                Y = sy,
+                Type = 1,
+                Angle = 0,
+                Flags = 7
+            });
+
+            return map;
+        }
+
+        private (double X, double Y) SafeSpawn(Room room)
+        {
+            const int margin = 64;
+            double x = room.X + margin;
+            double y = room.Y + margin;
+            return (x, y);
+        }
+
+        private void BuildRoom(DoomMap map, Room room, int sectorId)
+        {
             int v0 = map.Vertices.Count;
             map.Vertices.Add(new Vertex(room.X, room.Y));
 
@@ -121,58 +133,37 @@ namespace DooMGen.Core.Generation
             int v3 = map.Vertices.Count;
             map.Vertices.Add(new Vertex(room.X, room.Y + room.Height));
 
-            // 3. Linedefs (correct orientation)
-            AddLine(map, v0, v3, sector.Id);
-            AddLine(map, v3, v2, sector.Id);
-            AddLine(map, v2, v1, sector.Id);
-            AddLine(map, v1, v0, sector.Id);
+            AddLine(map, v0, v3, sectorId);
+            AddLine(map, v3, v2, sectorId);
+            AddLine(map, v2, v1, sectorId);
+            AddLine(map, v1, v0, sectorId);
         }
 
         // ---------------------------------------------------------
-        // CORRIDOR GEOMETRY
+        // CORRIDOR GEOMETRY (L-SHAPE, MÊME SECTEUR)
         // ---------------------------------------------------------
 
-        private void ConnectRooms(DoomMap map, Room a, Room b)
+        private void ConnectRooms(DoomMap map, Room a, Room b, int sectorId)
         {
-            int x1 = (int)a.CenterX;
-            int y1 = (int)a.CenterY;
+            int ax = (int)a.CenterX;
+            int ay = (int)a.CenterY;
 
-            int x2 = (int)b.CenterX;
-            int y2 = (int)b.CenterY;
+            int bx = (int)b.CenterX;
+            int by = (int)b.CenterY;
 
-            if (Math.Abs(x2 - x1) > Math.Abs(y2 - y1))
-            {
-                // Horizontal corridor
-                int left = Math.Min(x1, x2);
-                int right = Math.Max(x1, x2);
+            // 1) Segment horizontal
+            int hX = Math.Min(ax, bx);
+            int hW = Math.Abs(bx - ax);
+            BuildCorridor(map, hX, ay - 32, hW, 64, sectorId);
 
-                BuildCorridor(map, left, y1 - 32, right - left, 64);
-            }
-            else
-            {
-                // Vertical corridor
-                int top = Math.Min(y1, y2);
-                int bottom = Math.Max(y1, y2);
-
-                BuildCorridor(map, x1 - 32, top, 64, bottom - top);
-            }
+            // 2) Segment vertical
+            int vY = Math.Min(ay, by);
+            int vH = Math.Abs(by - ay);
+            BuildCorridor(map, bx - 32, vY, 64, vH, sectorId);
         }
 
-        private void BuildCorridor(DoomMap map, int x, int y, int width, int height)
+        private void BuildCorridor(DoomMap map, int x, int y, int width, int height, int sectorId)
         {
-            // 1. Sector
-            var sector = new Sector
-            {
-                Id = map.Sectors.Count,
-                FloorHeight = 0,
-                CeilingHeight = 128,
-                FloorTexture = "FLOOR0_1",
-                CeilingTexture = "CEIL1_1",
-                LightLevel = 160
-            };
-            map.Sectors.Add(sector);
-
-            // 2. Vertices
             int v0 = map.Vertices.Count;
             map.Vertices.Add(new Vertex(x, y));
 
@@ -185,11 +176,10 @@ namespace DooMGen.Core.Generation
             int v3 = map.Vertices.Count;
             map.Vertices.Add(new Vertex(x, y + height));
 
-            // 3. Linedefs
-            AddLine(map, v0, v3, sector.Id);
-            AddLine(map, v3, v2, sector.Id);
-            AddLine(map, v2, v1, sector.Id);
-            AddLine(map, v1, v0, sector.Id);
+            AddLine(map, v0, v3, sectorId);
+            AddLine(map, v3, v2, sectorId);
+            AddLine(map, v2, v1, sectorId);
+            AddLine(map, v1, v0, sectorId);
         }
 
         // ---------------------------------------------------------
@@ -221,5 +211,4 @@ namespace DooMGen.Core.Generation
             });
         }
     }
-
 }

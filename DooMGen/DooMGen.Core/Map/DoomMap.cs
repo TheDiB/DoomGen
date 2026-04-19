@@ -2,7 +2,7 @@
 {
     public class DoomMap
     {
-        public string Name { get; set; } = "MAP01";
+        public string Name { get; set; }
         public List<Vertex> Vertices { get; } = new();
         public List<Sector> Sectors { get; } = new();
         public List<Sidedef> Sidedefs { get; } = new();

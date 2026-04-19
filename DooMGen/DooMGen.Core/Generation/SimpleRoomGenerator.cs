@@ -4,9 +4,9 @@ namespace DooMGen.Core.Generation
 {
     public static class SimpleRoomGenerator
     {
-        public static DoomMap GenerateSimpleRoom()
+        public static DoomMap GenerateSimpleRoom(string mapName)
         {
-            var map = new DoomMap { Name = "MAP01" };
+            var map = new DoomMap { Name = mapName };
 
             // 1. Secteur
             var sector = new Sector

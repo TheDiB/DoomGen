@@ -2,7 +2,7 @@
   "profiles": {
     "DooMGen.CLI": {
       "commandName": "Project",
-      "commandLineArgs": "zdoom rooms=5"
+      "commandLineArgs": "zdoom output=C:\\Games\\Doom rooms=0 wadname=genmap"
     }
   }
 }

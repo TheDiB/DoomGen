@@ -10,7 +10,7 @@ namespace DooMGen.Core.Export
             var sb = new StringBuilder();
 
             // Toujours la première ligne
-            sb.AppendLine("namespace = \"Doom\";");
+            sb.AppendLine("namespace = \"UDMF\";");
             sb.AppendLine();
 
             // ---------------------------------------------------------
